@@ -1,0 +1,86 @@
+# Databases listen on this machine only (127.0.0.1): the GATE backend reaches them, nothing else on the
+# network can. Browsers talk only to the backend. Passwords come from .env; compose refuses to start without them.
+services:
+  app:
+    # Opt-in: database-only local development still works with `docker compose up -d`.
+    profiles: [app]
+    build:
+      context: .
+      target: runtime
+    image: hls-monitor:local
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      # Docker service names override host-machine settings from .env.
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      MONGO_URI: ""
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    stop_grace_period: 60s
+
+  redis:
+    image: redis:8.10-alpine
+    container_name: redis-server
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}"]
+
+  redis-commander:
+    platform: linux/amd64
+    # No version tags upstream: pinned to the exact image in use.
+    image: rediscommander/redis-commander@sha256:19cd0c49f418779fa2822a0496c5e6516d0c792effc39ed20089e6268477e40a
+    container_name: redis-commander
+    restart: unless-stopped
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:8081:8081"
+    depends_on:
+      - redis
+
+  mongodb:
+    # Pinned to the major the data volume was written with; upgrade one major at a time.
+    image: mongo:9.0
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    environment:
+      # Only used when the data volume is first created; changing them later does not change the password.
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:?Set MONGO_USER in .env}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:?Set MONGO_PASSWORD in .env}
+      - MONGO_INITDB_DATABASE=kafka_mimic
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand('ping').ok ? 0 : 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  redis-data:
+  mongo-data:

@@ -1,0 +1,47 @@
+# Dependencies and generated application builds
+node_modules/
+dist/
+frontend/dist/
+
+# Secrets and private runtime configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+config/hls-streams.json
+hls-monitor-configuration*.json
+
+# Test, coverage and tool caches
+test-results/
+playwright-report/
+coverage/
+.nyc_output/
+.vite/
+.cache/
+*.tsbuildinfo
+
+# Runtime output and local backups
+*.log
+logs/
+*.pid
+*.pid.lock
+dumps/
+backups/
+*.rdb
+appendonlydir/
+
+# Local editor, OS and assistant state
+.DS_Store
+.AppleDouble
+Thumbs.db
+.idea/
+.vscode/
+.claude/
+.codex/
+.aws/
+*.swp
+*.swo
+*~

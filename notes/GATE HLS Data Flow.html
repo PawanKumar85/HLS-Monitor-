@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body>
+  <title>HLS Data Flow</title>
+  <meta name="claude:viewport-fit-sides" content="cover">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    /* Layout: one wide whiteboard-style canvas (scrolls sideways), then a legend and stage notes. Deliberately dark-only, like the source sketches. */
+    :root {
+      --bg: #121212;
+      --panel: #1a1b1c;
+      --fg: #e8e6e3;
+      --muted: #8d9196;
+      --dot: #26282a;
+      --green: #6cbf6c;
+      --orange: #e0913f;
+      --coral: #f2867a;
+      --blue: #6fa8ee;
+      --red: #ec5a51;
+      --gold: #e3c55a;
+      --violet: #b79cf2;
+      --hand: "Architects Daughter", "Comic Sans MS", cursive;
+      --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+      color-scheme: dark;
+    }
+
+    html,
+    body {
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    body {
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding-block: 32px 56px;
+      padding-left: max(16px, env(safe-area-inset-left, 0px));
+      padding-right: max(16px, env(safe-area-inset-right, 0px));
+      display: grid;
+      gap: 28px;
+    }
+
+    header {
+      display: grid;
+      gap: 6px;
+      max-width: 70ch;
+    }
+
+    h1 {
+      font-family: var(--hand);
+      font-weight: 400;
+      font-size: clamp(30px, 4vw, 44px);
+      line-height: 1.1;
+      margin: 0;
+      color: var(--green);
+      text-wrap: balance;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .canvas {
+      overflow-x: auto;
+      border: 1px solid #2a2c2e;
+      border-radius: 14px;
+      background-color: var(--bg);
+      background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px);
+      background-size: 22px 22px;
+    }
+
+    .canvas svg {
+      display: block;
+      width: 100%;
+      min-width: 2200px;
+      height: auto;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      margin: -16px 0 0;
+    }
+
+    @media (min-width: 2200px) {
+      .hint {
+        display: none;
+      }
+    }
+
+    svg text {
+      fill: var(--fg);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+
+    svg .t {
+      font-family: var(--hand);
+      font-size: 23px;
+    }
+
+    svg .m {
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    svg .s {
+      fill: var(--muted);
+    }
+
+    svg .tiny {
+      font-size: 12.5px;
+    }
+
+    svg .lbl {
+      font-family: var(--hand);
+      font-size: 18px;
+    }
+
+    .g {
+      stroke: var(--green);
+    }
+
+    .o {
+      stroke: var(--orange);
+    }
+
+    .c {
+      stroke: var(--coral);
+    }
+
+    .b {
+      stroke: var(--blue);
+    }
+
+    .r {
+      stroke: var(--red);
+    }
+
+    .y {
+      stroke: var(--gold);
+    }
+
+    .v {
+      stroke: var(--violet);
+    }
+
+    svg .wall-label {
+      fill: var(--gold);
+      font-family: var(--hand);
+      font-size: 30px;
+      letter-spacing: 0.3em;
+    }
+
+    .fg-gold {
+      fill: var(--gold) !important;
+    }
+
+    .fg-violet {
+      fill: var(--violet) !important;
+    }
+
+    .box {
+      fill: var(--bg);
+      stroke-width: 2;
+    }
+
+    .wire {
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .dash {
+      stroke-dasharray: 7 6;
+    }
+
+    .cell {
+      fill: var(--bg);
+      stroke: var(--green);
+      stroke-width: 1.8;
+    }
+
+    .badge circle {
+      fill: var(--bg);
+      stroke-width: 2;
+    }
+
+    .badge text {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 500;
+      text-anchor: middle;
+    }
+
+    .fg-green {
+      fill: var(--green) !important;
+    }
+
+    .fg-orange {
+      fill: var(--orange) !important;
+    }
+
+    .fg-coral {
+      fill: var(--coral) !important;
+    }
+
+    .fg-blue {
+      fill: var(--blue) !important;
+    }
+
+    .fg-red {
+      fill: var(--red) !important;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 22px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend i {
+      width: 26px;
+      height: 0;
+      border-top: 2px solid;
+      display: inline-block;
+    }
+
+    .legend i.d {
+      border-top-style: dashed;
+    }
+
+    .stages {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .stages li {
+      background: var(--panel);
+      border: 1px solid #2a2c2e;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .stages h2 {
+      font-family: var(--hand);
+      font-weight: 400;
+      font-size: 20px;
+      margin: 0;
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+    }
+
+    .stages h2 b {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .stages p {
+      margin: 0;
+      color: #c3c5c8;
+      font-size: 14px;
+    }
+
+    .stages code {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      color: var(--orange);
+      overflow-wrap: anywhere;
+    }
+  </style>
+
+  <div class="wrap">
+    <header>
+      <h1>HLS Data Flow</h1>
+      <p>How a stream gets registered, checked, streamed to the browser, saved and summarised, how the multi-hop
+        pipeline finds the root cause, and how alerts reach a device even when the site is closed. Every key, limit, and
+        collection name below is taken from the current code.</p>
+    </header>
+
+    <div class="canvas" role="img"
+      aria-label="Data flow diagram: users reach HLS through an API Gateway and sign in with a session login; there are no roles. Channels and their hops are built on the Add Stream page; each HLS hop becomes a stream. Streams are stored in MongoDB, synced into a Redis probe schedule, queued into per-server Redis Streams trimmed after an hour, read by per-server worker pools and health-checked with a two-failure rule; an offline check stores its reason. Live status goes to the React dashboard over SSE; checks are batched per server and saved to MongoDB for seven days, then summarised every minute into hourly rollups that the Reports page reads for availability, downtime, outages, MTTR, p95 and p99 latency, failure reasons and an outage log. The pipeline monitor reads the hops' live status every 10 seconds, connects to TCP hops itself and pings SRT hosts, finds the first hop that is down and opens one incident per broken host. A watchdog opens an incident when checks stop being saved. Incidents go to a webhook and, through Web Push, to every device that turned on background alerts. Messages that fail five times move to a dead-letter stream, are archived in bulk every five seconds to failure history (resolved ones kept 30 days), streamed live to the DLQ page, searchable, and can be replayed after confirmation.">
+      <svg viewBox="-1010 0 4330 1140" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="brick" width="36" height="24" patternUnits="userSpaceOnUse">
+            <rect width="36" height="24" fill="#1d1a10" />
+            <path d="M0 0.5 H36 M0 12.5 H36 M0.5 0 V12 M18.5 12 V24" stroke="#e3c55a" stroke-opacity="0.55"
+              stroke-width="1.4" fill="none" />
+          </pattern>
+          <marker id="ay" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11"
+            orient="auto-start-reverse">
+            <path d="M1 1 L11 6 L1 11" fill="none" stroke="#e3c55a" stroke-width="1.8" />
+          </marker>
+          <marker id="ag" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11"
+            orient="auto-start-reverse">
+            <path d="M1 1 L11 6 L1 11" fill="none" stroke="#6cbf6c" stroke-width="1.8" />
+          </marker>
+          <marker id="ao" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11"
+            orient="auto-start-reverse">
+            <path d="M1 1 L11 6 L1 11" fill="none" stroke="#e0913f" stroke-width="1.8" />
+          </marker>
+          <marker id="ac" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11"
+            orient="auto-start-reverse">
+            <path d="M1 1 L11 6 L1 11" fill="none" stroke="#f2867a" stroke-width="1.8" />
+          </marker>
+          <marker id="ab" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11"
+            orient="auto-start-reverse">
+            <path d="M1 1 L11 6 L1 11" fill="none" stroke="#6fa8ee" stroke-width="1.8" />
+          </marker>
+          <marker id="ar" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11"
+            orient="auto-start-reverse">
+            <path d="M1 1 L11 6 L1 11" fill="none" stroke="#ec5a51" stroke-width="1.8" />
+          </marker>
+          <marker id="av" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11"
+            orient="auto-start-reverse">
+            <path d="M1 1 L11 6 L1 11" fill="none" stroke="#b79cf2" stroke-width="1.8" />
+          </marker>
+        </defs>
+
+        <!-- ============ Gateway, login ============ -->
+        <rect x="-150" y="40" width="72" height="560" rx="6" fill="url(#brick)" class="y" stroke-width="2" />
+        <text class="lbl fg-gold" x="-114" y="28" text-anchor="middle">API Gateway</text>
+        <text class="wall-label" transform="translate(-108 330) rotate(-90)" text-anchor="middle">API GATEWAY</text>
+        <rect class="box y" x="-170" y="505" width="112" height="72" rx="10" />
+        <text class="m tiny fg-gold" x="-114" y="535" text-anchor="middle">TLS</text>
+        <text class="m tiny fg-gold" x="-114" y="559" text-anchor="middle">rate limit</text>
+
+        <path class="wire y" d="M-78 300 H36" marker-end="url(#ay)" />
+        <text class="lbl s" x="-20" y="288" text-anchor="middle">HTTPS</text>
+
+        <rect class="box y" x="40" y="230" width="330" height="150" rx="14" />
+        <text class="t fg-gold" x="62" y="268">Sign-in</text>
+        <text class="m" x="62" y="298">/login · passport-local</text>
+        <text class="s" x="62" y="324">Users in MongoDB (scrypt hash)</text>
+        <text class="s" x="62" y="348">Redis session, 12 h · no roles</text>
+        <text class="s tiny" x="62" y="370">Every page and API, except /health, /sw.js</text>
+        <path class="wire y" d="M205 226 V194" marker-end="url(#ay)" />
+        <text class="lbl s" x="215" y="214">session</text>
+
+        <!-- ============ 1 · Register ============ -->
+        <rect class="box g" x="40" y="70" width="330" height="120" rx="14" />
+        <text class="t fg-green" x="62" y="108">Stream API</text>
+        <text class="m" x="62" y="140">POST · PATCH · DELETE /api/streams</text>
+        <text class="s" x="62" y="164">API only (no page) · If-Match version</text>
+        <text class="s tiny" x="62" y="182">HLS hops from Add Stream land here too</text>
+        <g class="badge">
+          <circle class="g" cx="40" cy="70" r="15" /><text x="40" y="75">1</text>
+        </g>
+
+        <!-- ============ 2 · Store ============ -->
+        <path class="box g" d="M450 100 v140 a160 24 0 0 0 320 0 v-140" />
+        <ellipse class="box g" cx="610" cy="100" rx="160" ry="24" />
+        <text class="t fg-green" x="478" y="160">MongoDB</text>
+        <text class="m" x="478" y="190">hls_stream_inventory</text>
+        <text class="s" x="478" y="216">Source of truth · versioned</text>
+        <text class="s" x="478" y="238">pendingSync marks unsynced rows</text>
+        <g class="badge">
+          <circle class="g" cx="450" cy="100" r="15" /><text x="450" y="105">2</text>
+        </g>
+
+        <rect class="box g" x="440" y="320" width="340" height="112" rx="14" />
+        <text class="t fg-green" x="462" y="357">Inventory sync worker</text>
+        <text class="s" x="462" y="386">Every 1 s, up to 20 records</text>
+        <text class="s" x="462" y="410">Pending first, then a rolling scan</text>
+
+        <path class="wire g" d="M370 130 H440" marker-end="url(#ag)" />
+        <path class="wire g" d="M610 266 V316" marker-end="url(#ag)" />
+
+        <!-- ============ 3 · Schedule ============ -->
+        <rect class="box c" x="860" y="70" width="370" height="210" rx="14" />
+        <text class="t fg-coral" x="882" y="108">Redis probe schedule</text>
+        <text class="m" x="882" y="140">hls:probes:&lt;ns&gt;:inventory</text>
+        <text class="m" x="882" y="164">hls:probes:&lt;ns&gt;:due</text>
+        <text class="m" x="882" y="188">hls:probes:&lt;ns&gt;:versions</text>
+        <text class="m" x="882" y="212">hls:probes:&lt;ns&gt;:leases</text>
+        <text class="s" x="882" y="246">Lua APPLY · older versions rejected</text>
+        <g class="badge">
+          <circle class="c" cx="860" cy="70" r="15" /><text x="860" y="75">3</text>
+        </g>
+
+        <rect class="box c" x="860" y="320" width="370" height="112" rx="14" />
+        <text class="t fg-coral" x="882" y="357">Probe scheduler</text>
+        <text class="s" x="882" y="386">Every 500 ms, up to 50 due streams</text>
+        <text class="s" x="882" y="410">Lua ENQUEUE · lease blocks duplicates</text>
+
+        <path class="wire c" d="M780 376 H820 V175 H856" marker-end="url(#ac)" />
+        <text class="lbl s" x="790" y="364">apply</text>
+        <path class="wire c" d="M1045 280 V316" marker-end="url(#ac)" />
+        <text class="lbl s" x="1056" y="304">due list</text>
+
+        <!-- payload callout -->
+        <rect class="box o" x="430" y="470" width="420" height="132" rx="14" />
+        <text class="m tiny fg-orange" x="450" y="496">{</text>
+        <text class="m tiny fg-orange" x="466" y="516">"streamId": "pipeline:abn/cdn",</text>
+        <text class="m tiny fg-orange" x="466" y="536">"streamUrl": "https://stream.example/abn/index.m3u8",</text>
+        <text class="m tiny fg-orange" x="466" y="556">"serverIp": "stream.example",</text>
+        <text class="m tiny fg-orange" x="466" y="576">"createdAt": "2026-11-12T10:30:00.000Z"</text>
+        <text class="m tiny fg-orange" x="450" y="594">}</text>
+        <text class="lbl fg-orange" x="430" y="460">one stream message</text>
+
+        <!-- ============ 4 · Queue: Redis Streams ============ -->
+        <text class="lbl fg-coral" x="1310" y="470">Redis Streams · one per server</text>
+        <g class="badge">
+          <circle class="c" cx="1296" cy="464" r="15" /><text x="1296" y="469">4</text>
+        </g>
+        <rect class="box c" x="1310" y="490" width="300" height="60" rx="12" />
+        <text class="m" x="1330" y="525">hls:streams:192.168.1.10</text>
+        <rect class="box c" x="1310" y="610" width="300" height="60" rx="12" />
+        <text class="m" x="1330" y="645">hls:streams:192.168.1.11</text>
+        <rect class="box c" x="1310" y="730" width="300" height="60" rx="12" />
+        <text class="m" x="1330" y="765">hls:streams:192.168.1.12</text>
+        <path class="wire c dash" d="M1460 806 V836" stroke-width="4" stroke-dasharray="2 9" stroke-linecap="round" />
+        <text class="s tiny" x="1310" y="858">jobs older than 1 h trimmed (XTRIM)</text>
+
+        <!-- scheduler into the streams -->
+        <path class="wire o" d="M1230 376 H1265 V760" />
+        <path class="wire o" d="M1265 520 H1306" marker-end="url(#ao)" />
+        <path class="wire o" d="M1265 640 H1306" marker-end="url(#ao)" />
+        <path class="wire o" d="M1265 760 H1306" marker-end="url(#ao)" />
+        <text class="lbl s" x="1240" y="400" text-anchor="end">XADD</text>
+        <path class="wire o dash" d="M850 520 H1250" />
+
+        <!-- ============ 5 · Consume ============ -->
+        <text class="lbl fg-coral" x="1690" y="470">Consumers · group hls-workers</text>
+        <g class="badge">
+          <circle class="c" cx="1676" cy="464" r="15" /><text x="1676" y="469">5</text>
+        </g>
+        <rect class="box c" x="1690" y="490" width="210" height="60" rx="12" />
+        <text x="1710" y="516">HlsConsumer</text><text class="m tiny s" x="1710" y="537">192.168.1.10</text>
+        <rect class="box c" x="1690" y="610" width="210" height="60" rx="12" />
+        <text x="1710" y="636">HlsConsumer</text><text class="m tiny s" x="1710" y="657">192.168.1.11</text>
+        <rect class="box c" x="1690" y="730" width="210" height="60" rx="12" />
+        <text x="1710" y="756">HlsConsumer</text><text class="m tiny s" x="1710" y="777">192.168.1.12</text>
+        <text class="s tiny" x="1690" y="822">worker pool, 10 checks per server</text>
+        <path class="wire c" d="M1610 520 H1686" marker-end="url(#ac)" />
+        <path class="wire c" d="M1610 640 H1686" marker-end="url(#ac)" />
+        <path class="wire c" d="M1610 760 H1686" marker-end="url(#ac)" />
+        <text class="lbl s" x="1648" y="510" text-anchor="middle">XREADGROUP</text>
+
+        <!-- ============ 6 · Check ============ -->
+        <rect class="box b" x="1970" y="480" width="270" height="320" rx="16" />
+        <text class="t fg-blue" x="1992" y="520">Health check</text>
+        <text class="s" x="1992" y="552">64 probes at once, 256 waiting</text>
+        <text x="1992" y="588">1. Fetch the playlist</text>
+        <text class="m tiny s" x="2010" y="609">+ request first 1 KB; stop on bytes</text>
+        <text x="1992" y="644">2. Is it still moving?</text>
+        <text class="m tiny s" x="2010" y="665">freshness kept in Redis</text>
+        <text x="1992" y="700">3. Result</text>
+        <text class="m fg-green" x="2010" y="725">Online 1</text>
+        <text class="m fg-red" x="2010" y="748">Offline 0 + reason</text>
+        <text class="m tiny s" x="1992" y="772">TIMEOUT · DNS · HTTP_404 …</text>
+        <text class="s tiny" x="1992" y="792">offline after 2 failures in a row</text>
+        <g class="badge">
+          <circle class="b" cx="1970" cy="480" r="15" /><text x="1970" y="485">6</text>
+        </g>
+        <path class="wire b" d="M1900 520 H1966" marker-end="url(#ab)" />
+        <path class="wire b" d="M1900 640 H1966" marker-end="url(#ab)" />
+        <path class="wire b" d="M1900 760 H1966" marker-end="url(#ab)" />
+
+        <!-- ============ Live status to the browser ============ -->
+        <rect class="box b" x="2270" y="100" width="330" height="140" rx="14" />
+        <text class="t fg-blue" x="2292" y="138">Status events</text>
+        <text class="s" x="2292" y="166">Stored in Redis, replayable</text>
+        <text class="m tiny" x="2292" y="194">SSE /events/hls-status</text>
+        <text class="m tiny" x="2292" y="216">GET /api/hls/status/snapshot</text>
+
+        <rect class="box b" x="2690" y="40" width="250" height="270" rx="18" stroke-width="2.5" />
+        <text class="t fg-blue" x="2712" y="78">Dashboard app</text>
+        <text class="s tiny" x="2712" y="100">React (Vite),HLS Monitoring</text>
+        <text class="s" x="2712" y="128">Dashboard (/): live overview</text>
+        <text class="s" x="2712" y="152">Workspace: servers canvas</text>
+        <text class="s" x="2712" y="176">Add Stream (/create): channels</text>
+        <text class="s" x="2712" y="200">Reports: availability, outages</text>
+        <text class="s" x="2712" y="224">DLQ: failures, search, replay</text>
+        <text class="s" x="2712" y="248">Account: background alerts</text>
+        <text class="s tiny" x="2712" y="280">every signed-in user can edit</text>
+
+        <path class="wire b" d="M2105 476 V170 H2266" marker-end="url(#ab)" />
+        <text class="lbl s" x="2118" y="300">publish status</text>
+        <path class="wire b" d="M2600 170 H2686" marker-end="url(#ab)" />
+        <text class="lbl fg-blue" x="2643" y="158" text-anchor="middle">SSE</text>
+
+        <!-- ============ 7 · Batch ============ -->
+        <text class="lbl fg-green" x="2300" y="470">Unsorted batch · per server</text>
+        <g class="badge">
+          <circle class="g" cx="2286" cy="464" r="15" /><text x="2286" y="469">7</text>
+        </g>
+        <g>
+          <rect x="2294" y="494" width="330" height="52" rx="10" class="box b" stroke-width="1.6" />
+          <rect class="cell" x="2302" y="501" width="38" height="38" rx="8" />
+          <rect class="cell" x="2348" y="501" width="38" height="38" rx="8" />
+          <rect class="cell" x="2394" y="501" width="38" height="38" rx="8" />
+          <rect class="cell" x="2440" y="501" width="38" height="38" rx="8" />
+          <rect class="cell" x="2486" y="501" width="38" height="38" rx="8" />
+          <rect class="cell" x="2532" y="501" width="38" height="38" rx="8" />
+          <rect class="cell" x="2578" y="501" width="38" height="38" rx="8" />
+          <rect x="2294" y="614" width="330" height="52" rx="10" class="box b" stroke-width="1.6" />
+          <rect class="cell" x="2302" y="621" width="38" height="38" rx="8" />
+          <rect class="cell" x="2348" y="621" width="38" height="38" rx="8" />
+          <rect class="cell" x="2394" y="621" width="38" height="38" rx="8" />
+          <rect class="cell" x="2440" y="621" width="38" height="38" rx="8" />
+          <rect class="cell" x="2486" y="621" width="38" height="38" rx="8" />
+          <rect class="cell" x="2532" y="621" width="38" height="38" rx="8" />
+          <rect class="cell" x="2578" y="621" width="38" height="38" rx="8" />
+          <rect x="2294" y="734" width="330" height="52" rx="10" class="box b" stroke-width="1.6" />
+          <rect class="cell" x="2302" y="741" width="38" height="38" rx="8" />
+          <rect class="cell" x="2348" y="741" width="38" height="38" rx="8" />
+          <rect class="cell" x="2394" y="741" width="38" height="38" rx="8" />
+          <rect class="cell" x="2440" y="741" width="38" height="38" rx="8" />
+          <rect class="cell" x="2486" y="741" width="38" height="38" rx="8" />
+          <rect class="cell" x="2532" y="741" width="38" height="38" rx="8" />
+          <rect class="cell" x="2578" y="741" width="38" height="38" rx="8" />
+        </g>
+        <text class="s" x="2300" y="820">10 MB cap · flush at 7 MB or 5 s</text>
+        <text class="s" x="2300" y="844">sorted by time on flush</text>
+        <path class="wire g" d="M2240 520 H2290" marker-end="url(#ag)" />
+        <path class="wire g" d="M2240 640 H2290" marker-end="url(#ag)" />
+        <path class="wire g" d="M2240 760 H2290" marker-end="url(#ag)" />
+
+        <!-- ============ 8 · Save ============ -->
+        <path class="box g" d="M2710 560 v150 a105 20 0 0 0 210 0 v-150" />
+        <ellipse class="box g" cx="2815" cy="560" rx="105" ry="20" />
+        <text class="t fg-green" x="2734" y="612">MongoDB</text>
+        <text class="m tiny" x="2734" y="638">hls_stream_metrics</text>
+        <text class="s tiny" x="2734" y="660">kept 7 days (TTL)</text>
+        <text class="s tiny" x="2734" y="682">XACK after the write</text>
+        <text class="s tiny" x="2734" y="704">reason on offline checks</text>
+        <g class="badge">
+          <circle class="g" cx="2710" cy="560" r="15" /><text x="2710" y="565">8</text>
+        </g>
+        <path class="wire g" d="M2624 520 H2660 V760 H2624" />
+        <path class="wire g" d="M2624 640 H2706" marker-end="url(#ag)" />
+        <text class="lbl fg-green" x="2668" y="500">sort &amp; save</text>
+
+        <!-- ============ 10 · Summarise and report ============ -->
+        <rect class="box g" x="2990" y="560" width="300" height="150" rx="14" />
+        <text class="t fg-green" x="3012" y="596">Hourly rollup</text>
+        <text class="m tiny" x="3012" y="622">hls_stream_hourly</text>
+        <text class="s tiny" x="3012" y="646">one row per stream per hour</text>
+        <text class="s tiny" x="3012" y="668">rebuilt every minute, replace-only</text>
+        <text class="s tiny" x="3012" y="690">downtime · outages · p95/p99 · reasons</text>
+        <g class="badge">
+          <circle class="g" cx="2990" cy="560" r="15" /><text x="2990" y="565">10</text>
+        </g>
+        <path class="wire g" d="M2920 635 H2986" marker-end="url(#ag)" />
+
+        <rect class="box g" x="2990" y="750" width="300" height="150" rx="14" />
+        <text class="t fg-green" x="3012" y="786">Reports API</text>
+        <text class="m tiny" x="3012" y="812">/api/servers/report</text>
+        <text class="s tiny" x="3012" y="834">availability, MTTR · 60 s cache</text>
+        <text class="m tiny" x="3012" y="858">/api/servers/:server/details</text>
+        <text class="s tiny" x="3012" y="880">outage log + hourly bars</text>
+        <path class="wire g" d="M3140 710 V746" marker-end="url(#ag)" />
+        <path class="wire g" d="M3290 825 H3310 V250 H2944" marker-end="url(#ag)" />
+        <text class="lbl fg-green" x="3130" y="242" text-anchor="middle">Reports page</text>
+
+        <!-- ============ 9 · Multi-hop pipeline (left of the gateway) ============ -->
+        <text class="lbl fg-violet" x="-980" y="58">Multi-hop pipeline · built on Add Stream</text>
+        <text class="m tiny s" x="-980" y="80">ingest → SCTE → transcoder → CDN</text>
+        <g class="badge">
+          <circle class="v" cx="-994" cy="52" r="15" /><text x="-994" y="57">9</text>
+        </g>
+
+        <rect class="box v" x="-980" y="110" width="380" height="130" rx="14" />
+        <text class="t fg-violet" x="-958" y="146">Channels + probe targets</text>
+        <text class="s" x="-958" y="172">Canvas on Add Stream (/create)</text>
+        <text class="m tiny" x="-958" y="196">pipeline_channels · pipeline_probe_targets</text>
+        <text class="s tiny" x="-958" y="222">HLS URL (becomes a stream) · TCP host:port</text>
+
+        <rect class="box v" x="-980" y="290" width="380" height="130" rx="14" />
+        <text class="t fg-violet" x="-958" y="326">Pipeline monitor</text>
+        <text class="s" x="-958" y="354">Every 10 s · SRT hosts pinged every 30 s</text>
+        <text class="s" x="-958" y="378">HLS hop: reads its stream's live status</text>
+        <text class="s tiny" x="-958" y="402">TCP hop: connects itself, 2 failures in a row</text>
+
+        <rect class="box v" x="-330" y="660" width="380" height="130" rx="14" />
+        <text class="t fg-violet" x="-308" y="696">Root-cause engine</text>
+        <text class="s" x="-308" y="724">First hop down: root cause (CONVICT)</text>
+        <text class="s" x="-308" y="748">Hops below: affected, not alerted</text>
+        <text class="s tiny" x="-308" y="772">backup live: failover · only VOD: fallback alert</text>
+
+        <rect class="box v" x="-330" y="840" width="380" height="130" rx="14" />
+        <text class="t fg-violet" x="-308" y="876">Incidents</text>
+        <text class="s" x="-308" y="904">One per broken host, across channels</text>
+        <text class="m tiny" x="-308" y="928">pipeline_incidents · 7 days</text>
+        <text class="s tiny" x="-308" y="952">alerts sent on open and resolve only</text>
+        <text class="m tiny fg-violet" x="-330" y="1000">Dashboard polls /api/pipeline/* · "Server history" →
+          Reports</text>
+
+        <path class="wire v" d="M-790 240 V286" marker-end="url(#av)" />
+        <path class="wire v" d="M-790 420 V725 H-334" marker-end="url(#av)" />
+        <path class="wire v" d="M-140 790 V836" marker-end="url(#av)" />
+
+        <!-- watchdog: the monitor watching itself -->
+        <rect class="box v" x="110" y="660" width="300" height="130" rx="14" />
+        <text class="t fg-violet" x="132" y="696">Check watchdog</text>
+        <text class="s" x="132" y="724">Every minute: newest saved check</text>
+        <text class="s tiny" x="132" y="748">none for 3 min while streams exist</text>
+        <text class="m tiny" x="132" y="772">→ "Monitoring stopped" incident</text>
+        <path class="wire v" d="M110 725 H80 V880 H54" marker-end="url(#av)" />
+
+        <!-- alerts out -->
+        <rect class="box v" x="110" y="840" width="300" height="150" rx="14" stroke-width="2.5" />
+        <text class="t fg-violet" x="132" y="876">Alerts out</text>
+        <text class="s" x="132" y="904">Webhook (if set) + Web Push</text>
+        <text class="m tiny" x="132" y="928">VAPID · push_subscriptions</text>
+        <text class="s tiny" x="132" y="952">to every device with alerts on,</text>
+        <text class="s tiny" x="132" y="972">even with the site closed (sw.js)</text>
+        <path class="wire v" d="M50 940 H106" marker-end="url(#av)" />
+
+        <!-- probe targets are saved through the gateway -->
+        <path class="wire v" d="M-154 150 H-596" marker-end="url(#av)" />
+        <text class="m tiny fg-violet" x="-540" y="142">PUT /api/pipeline/channels · probes</text>
+        <path class="wire v" d="M-600 215 H20 V160 H36" marker-end="url(#av)" />
+        <text class="m tiny fg-violet" x="-540" y="238">HLS target → stream pipeline:&lt;ch&gt;/&lt;hop&gt;</text>
+
+        <!-- the monitor reads the stream flow's live status -->
+        <path class="wire v dash" d="M2435 96 V10 H-560 V355 H-596" marker-end="url(#av)" />
+        <text class="m tiny fg-violet" x="1300" y="28">live status snapshot → pipeline monitor (every 10 s)</text>
+
+        <!-- ============ Failures ============ -->
+        <text class="lbl fg-red" x="1690" y="945">When a step fails</text>
+        <rect class="box r" x="1690" y="965" width="290" height="104" rx="14" />
+        <text class="t fg-red" x="1712" y="1002">Failure handler</text>
+        <text class="s" x="1712" y="1030">Retry up to 5 times</text>
+        <text class="s" x="1712" y="1052">backoff 1 s → 60 s</text>
+        <path class="wire r dash" d="M1740 794 V961" marker-end="url(#ar)" />
+        <path class="wire r dash" d="M2190 804 V930 H1880 V961" marker-end="url(#ar)" />
+
+        <rect class="box r" x="2270" y="965" width="330" height="104" rx="14" />
+        <text class="t fg-red" x="2292" y="1002">Dead-letter stream</text>
+        <text class="m" x="2292" y="1032">hls:dlq:&lt;serverIp&gt;</text>
+        <text class="s" x="2292" y="1054">Messages that ran out of retries</text>
+
+        <rect class="box r" x="2690" y="965" width="250" height="104" rx="14" />
+        <text class="t fg-red" x="2712" y="1002">Failure history</text>
+        <text class="m tiny" x="2712" y="1030">hls_processing_failures</text>
+        <text class="s tiny" x="2712" y="1052">resolved: deleted after 30 days</text>
+
+        <path class="wire r" d="M1980 1017 H2266" marker-end="url(#ar)" />
+        <text class="lbl s" x="2123" y="1006" text-anchor="middle">after 5 tries</text>
+        <path class="wire r" d="M2600 1017 H2686" marker-end="url(#ar)" />
+        <text class="lbl s" x="2645" y="955" text-anchor="middle">every 5 s, in bulk</text>
+        <path class="wire r dash" d="M2815 1069 V1095 H2435 V1073" marker-end="url(#ar)" />
+        <text class="lbl s" x="2625" y="1122" text-anchor="middle">replay (confirmed) → back to its stream</text>
+
+        <!-- failure feed to the dashboard app -->
+        <path class="wire r" d="M2940 1017 H2965 V285 H2944" marker-end="url(#ar)" />
+        <text class="m tiny fg-red" transform="translate(2982 432) rotate(-90)" text-anchor="middle">SSE failure feed ·
+          /api/failures</text>
+      </svg>
+    </div>
+    <p class="hint">Scroll sideways to see the whole flow.</p>
+
+    <div class="legend" aria-label="Legend">
+      <span><i style="border-color: var(--gold)"></i>Gateway and sign-in</span>
+      <span><i style="border-color: var(--green)"></i>Registration, storage and reports</span>
+      <span><i style="border-color: var(--orange)"></i>Stream messages</span>
+      <span><i style="border-color: var(--coral)"></i>Redis scheduling and queues</span>
+      <span><i style="border-color: var(--blue)"></i>Health check and live status</span>
+      <span><i style="border-color: var(--violet)"></i>Multi-hop pipeline and alerts</span>
+      <span><i class="d" style="border-color: var(--red)"></i>Failure path</span>
+      <span><i style="border-color: var(--red)"></i>Failure history and feed</span>
+    </div>
+
+    <ol class="stages">
+      <li>
+        <h2><b>0</b>Sign in</h2>
+        <p>Every page and API needs a signed-in user (<code>/login</code>, passport-local); only <code>/health</code>
+          and the push service worker <code>/sw.js</code> are open. Sessions live in Redis for 12 hours. There are no
+          roles.</p>
+      </li>
+      <li>
+        <h2><b>1</b>Register</h2>
+        <p>Streams enter through <code>/api/streams</code> (no page of its own any more). Channel hops built on Add
+          Stream register their HLS URL here as <code>pipeline:&lt;channel&gt;/&lt;hop&gt;</code>. Edits need the
+          current version in <code>If-Match</code>.</p>
+      </li>
+      <li>
+        <h2><b>2</b>Store</h2>
+        <p>MongoDB holds the real list of streams. The sync worker copies changed rows to Redis every second and retries
+          failures with backoff.</p>
+      </li>
+      <li>
+        <h2><b>3</b>Schedule</h2>
+        <p>Redis keeps each stream's next check time. Every 500 ms the scheduler queues up to 50 due streams, one job
+          each, unless a job is already waiting.</p>
+      </li>
+      <li>
+        <h2><b>4</b>Queue</h2>
+        <p>Each server gets its own Redis Stream, <code>hls:streams:&lt;serverIp&gt;</code>, so one busy server doesn't
+          delay the rest. Jobs older than an hour are trimmed.</p>
+      </li>
+      <li>
+        <h2><b>5</b>Consume</h2>
+        <p>One consumer per server runs a pool of 10 checks, so a stream that times out holds only its own slot, not the
+          whole batch.</p>
+      </li>
+      <li>
+        <h2><b>6</b>Check</h2>
+        <p>Fetches the playlist and requests the first 1 KB of a segment, stopping after the first nonempty chunk, and
+          checks the playlist is still advancing. Offline after two failures in a row or a frozen playlist; each offline
+          check records why (TIMEOUT, DNS, HTTP_404, FROZEN…).</p>
+      </li>
+      <li>
+        <h2><b>7</b>Batch</h2>
+        <p>Results wait in memory per server. The batch is sorted by time and written at 7 MB or every 5 seconds.</p>
+      </li>
+      <li>
+        <h2><b>8</b>Save</h2>
+        <p>Rows go to <code>hls_stream_metrics</code> and are kept 7 days. A message is acknowledged only after the
+          write succeeds.</p>
+      </li>
+      <li>
+        <h2><b>9</b>Pipeline</h2>
+        <p>Channels and their hops are drawn on the Add Stream canvas. Every 10 s the monitor reads each HLS hop's live
+          status, connects to TCP hops and pings SRT hosts. The first hop down is the root cause; a host that breaks
+          several channels opens one incident.</p>
+      </li>
+      <li>
+        <h2><b>10</b>Reports</h2>
+        <p>Every minute the raw checks are summarised into <code>hls_stream_hourly</code>. Reports reads only those
+          rows: availability, downtime, outages, MTTR, p95/p99 of online checks and failure reasons, plus a per-server
+          outage log and hourly bars. Cached 60 s.</p>
+      </li>
+      <li>
+        <h2><b>!</b>Alerts</h2>
+        <p>Incidents (root cause, channel down, VOD fallback) and the watchdog's "Monitoring stopped" go to the webhook
+          and, via Web Push, to every device that turned alerts on in Account, even with the site closed. Best effort:
+          the dashboard stays the record.</p>
+      </li>
+      <li>
+        <h2><b>!</b>Failures</h2>
+        <p>Messages that fail 5 times move to <code>hls:dlq:&lt;serverIp&gt;</code>, then in bulk every 5 s to
+          <code>hls_processing_failures</code> (resolved ones deleted after 30 days). The DLQ page shows them live
+          within ~10 s, with whole-history counts, search, grouping and a confirmed replay.
+        </p>
+      </li>
+    </ol>
+  </div>
+
+</body>
+
+</html>

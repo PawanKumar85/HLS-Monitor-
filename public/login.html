@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/pwa/apple-touch-icon.png">
+<meta name="theme-color" content="#11171d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in to HLS monitor</title>
+<meta name="description" content="Sign in to the HLS monitor.">
+<meta name="color-scheme" content="dark light">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: Console (deal 2/3, seed operator-dashboard-live-hls-4dfb·9ad2a6d5·2026-11-09·r0)
+ * nav: none, a single sign-in form · signature: the dashboard's own headline voice, one sentence and one form · states: default, error, signed out · console: graphite (dark), paper re-hued to 250 (light)
+ * axes: dark/grotesk-sans/chromatic-amber · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H5 E5 S3 R5 V3 · weakest: S, a sign-in form is generic by nature; kept it to the dashboard's exact tokens and words so it reads as the same instrument */
+
+:root {
+  color-scheme: dark;
+  --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px;
+  --text-sm: 0.875rem; --text-md: 1rem; --text-2xl: 1.728rem;
+  --color-paper: oklch(17% 0.008 250); --color-paper-2: oklch(21% 0.009 250); --color-paper-3: oklch(13.5% 0.007 250);
+  --color-ink: oklch(95% 0.005 250); --color-ink-2: oklch(83% 0.008 250); --color-muted: oklch(71% 0.01 250);
+  --color-rule: oklch(31% 0.01 250); --color-rule-2: oklch(42% 0.012 250);
+  --color-accent: oklch(82% 0.15 80); --color-accent-ink: oklch(18% 0.04 75); --color-focus: oklch(82% 0.15 80);
+  --color-cool-soft: oklch(29% 0.05 245); --color-bad: oklch(70% 0.17 25); --color-bad-soft: oklch(24.5% 0.035 25);
+  --font-body: "Host Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --radius-card: 10px; --radius-pill: 6px;
+  --dur-micro: 120ms; --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --color-paper: oklch(97.5% 0.004 250); --color-paper-2: oklch(99.5% 0.002 250); --color-paper-3: oklch(94.5% 0.006 250);
+    --color-ink: oklch(20% 0.012 250); --color-ink-2: oklch(32% 0.012 250); --color-muted: oklch(46% 0.014 250);
+    --color-rule: oklch(88% 0.008 250); --color-rule-2: oklch(76% 0.01 250);
+    --color-accent: oklch(50% 0.13 70); --color-accent-ink: oklch(99% 0.01 85); --color-focus: oklch(50% 0.13 70);
+    --color-cool-soft: oklch(94% 0.03 245); --color-bad: oklch(50% 0.18 25); --color-bad-soft: oklch(95% 0.03 25);
+  }
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: var(--space-lg) var(--space-md); background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 25%, transparent); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+main { width: 100%; max-width: 24rem; display: grid; gap: var(--space-lg); }
+.brand { font-weight: 500; letter-spacing: -0.03em; }
+.brand span { color: var(--color-muted); font-weight: 400; letter-spacing: 0; margin-left: var(--space-xs); font-size: var(--text-sm); }
+h1 { margin: 0; font-size: var(--text-2xl); font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; text-wrap: balance; }
+p { margin: 0; }
+.lead { color: var(--color-muted); margin-top: var(--space-xs); }
+form { display: grid; gap: var(--space-md); padding: var(--space-lg); border: 1px solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper-2); }
+.field { display: grid; gap: var(--space-xs); }
+label { font-size: var(--text-sm); font-weight: 500; }
+input { font: inherit; color: inherit; width: 100%; min-height: 40px; padding: 0 var(--space-sm); border-radius: var(--radius-pill); border: 1px solid var(--color-rule-2); background: var(--color-paper-3); }
+input:focus-visible { outline-offset: -1px; }
+button { font: inherit; font-weight: 500; min-height: 40px; border-radius: var(--radius-pill); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); cursor: pointer; transition: background-color var(--dur-micro) var(--ease-out); }
+button:hover { background: color-mix(in oklab, var(--color-accent) 88%, var(--color-ink)); }
+button:active { transform: translateY(1px); }
+button:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
+.message { padding: var(--space-sm) var(--space-md); border-radius: var(--radius-pill); border: 1px solid var(--color-rule-2); background: var(--color-cool-soft); font-size: var(--text-sm); }
+.message--error { background: var(--color-bad-soft); border-color: color-mix(in oklab, var(--color-bad) 45%, transparent); color: var(--color-ink); }
+.note { font-size: var(--text-sm); color: var(--color-muted); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="brand">HLS monitor</p>
+  <div>
+    <h1>Sign in to see live stream status</h1>
+    <p class="lead">Use the account your administrator created for you.</p>
+  </div>
+  {{message}}
+  <form method="post" action="/login">
+    <input type="hidden" name="next" value="{{next}}">
+    <div class="field">
+      <label for="username">Username</label>
+      <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="64" autofocus>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
+    </div>
+    <button type="submit">Sign in</button>
+  </form>
+  <p class="note">No account? An administrator adds users with <code>npm run user -- add &lt;name&gt;</code>.</p>
+</main>
+</body>
+</html>

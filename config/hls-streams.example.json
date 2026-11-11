@@ -1,0 +1,10 @@
+[
+  {
+    "serverIp": "192.168.1.10",
+    "streamId": "channel-101",
+    "streamUrl": "https://media.example.com/live/index.m3u8",
+    "intervalMs": 10000,
+    "staleAfterMs": 30000,
+    "enabled": true
+  }
+]
